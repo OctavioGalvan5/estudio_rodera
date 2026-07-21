@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% block title %}Envío de Planillas — Estudio Rodera{% endblock %}
+
+{% block extra_style %}
+.result-summary { padding: 12px 16px; border-radius: 7px; font-size: .88rem; font-weight: 600; margin-bottom: 16px; }
+.result-ok    { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.result-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.result-mixed { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.result-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.result-table th { padding: 8px 10px; background: #f5f8fb; border-bottom: 2px solid var(--border); text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--texto3); }
+.result-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--texto2); }
+.result-table tr:last-child td { border-bottom: none; }
+{% endblock %}
+
+{% block subtabs %}
+<div class="subtabs-bar">
+    <div class="subtabs-inner">
+        <a href="{{ url_for('planilla_demanda') }}" class="subtab">
+            <i class="fas fa-file-alt"></i> Generar planillas
+        </a>
+        <a href="{{ url_for('mails_planilla') }}" class="subtab active">
+            <i class="fas fa-paper-plane"></i> Enviar planillas firmadas
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- UPLOAD -->
+    <div id="upload-panel">
+        <div class="card card-lg">
+            <h1 class="card-title" style="font-size:1.3rem;margin-bottom:6px;">
+                <i class="fas fa-paper-plane" style="color:var(--azul);font-size:1.1rem;opacity:.85;"></i>
+                Enviar planillas firmadas
+            </h1>
+            <p class="card-subtitle">Subí los PDFs firmados digitalmente. El sistema extrae el nombre y CUIL de cada planilla y envía el mail al tribunal automáticamente.</p>
+
+            <div id="flash-error" class="alert alert-danger" style="display:none;"></div>
+
+            <div style="margin-bottom:18px;">
+                <label style="display:block;font-size:.78rem;font-weight:700;color:var(--texto2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;">
+                    <i class="fas fa-at" style="color:var(--azul);margin-right:5px;font-size:.72rem;"></i>Destinatario
+                </label>
+                <input type="email" id="input-destinatario" value="octaviogalvan20034@gmail.com"
+                    style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:7px;font-family:inherit;font-size:.88rem;color:var(--texto);background:#f8fafc;outline:none;transition:.2s;"
+                    onfocus="this.style.borderColor='var(--azul)';this.style.background='white';"
+                    onblur="this.style.borderColor='var(--border2)';this.style.background='#f8fafc';">
+                <p style="font-size:.74rem;color:var(--texto3);margin:4px 0 0;">Podés cambiarlo antes de cargar los archivos.</p>
+            </div>
+
+            <div class="drop-zone" id="drop-zone">
+                <i class="fas fa-file-pdf"></i>
+                <p>Arrastrá los PDFs firmados aquí o hacé clic para seleccionar</p>
+                <small>Solo archivos .pdf · Podés subir varios a la vez</small>
+                <input type="file" id="pdf-input" multiple accept=".pdf">
+            </div>
+            <div class="file-chips" id="file-chips"></div>
+
+            <button class="btn-submit" id="btn-cargar" disabled>
+                <i class="fas fa-upload"></i> Cargar y previsualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div id="preview-panel" style="display:none;max-width:1000px;margin:0 auto;">
+        <div class="card card-lg">
+            <div class="card-title" style="font-size:1.1rem;margin-bottom:6px;">
+                <i class="fas fa-list-check" style="color:var(--azul);font-size:1rem;"></i> Verificar antes de enviar
+            </div>
+            <p class="card-subtitle">Revisá nombre y CUIL extraídos del PDF. Si alguno quedó vacío, completalo manualmente.</p>
+            <div id="preview-summary" style="font-size:.85rem;color:var(--texto2);margin-bottom:14px;padding:10px 14px;background:#f8fafc;border-radius:7px;border:1px solid var(--border);"></div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
+                    <thead>
+                        <tr style="background:#f5f8fb;border-bottom:2px solid var(--border);">
+                            <th style="padding:9px 10px;text-align:left;min-width:200px;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--texto3);">Nombre</th>
+                            <th style="padding:9px 10px;text-align:left;min-width:150px;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--texto3);">CUIL</th>
+                            <th style="padding:9px 10px;text-align:left;min-width:160px;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--texto3);">Archivo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="preview-tbody"></tbody>
+                </table>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="btn btn-gray" onclick="volverUpload()">← Cambiar archivos</button>
+                <button class="btn-submit" id="btn-enviar" style="width:auto;padding:11px 28px;margin-top:0;">
+                    <i class="fas fa-paper-plane"></i> Enviar todos
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROGRESO -->
+    <div id="progreso-panel">
+        <div class="card card-lg">
+            <div class="progress-wrap">
+                <div class="progress-label">
+                    <span id="prog-label">Enviando mails...</span>
+                    <span id="prog-pct">0%</span>
+                </div>
+                <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+            </div>
+            <div class="nombre-actual" id="nombre-actual"></div>
+        </div>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="resultado-panel" style="display:none;">
+        <div class="card card-lg">
+            <div id="result-summary-box" class="result-summary"></div>
+            <div style="overflow-x:auto;">
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Archivo</th>
+                            <th>Estado</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="result-tbody"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-gray" onclick="reiniciar()" style="margin-top:20px;">
+                <i class="fas fa-redo"></i> Nuevo envío
+            </button>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone    = document.getElementById('drop-zone');
+const pdfInput    = document.getElementById('pdf-input');
+const fileChips   = document.getElementById('file-chips');
+const btnCargar   = document.getElementById('btn-cargar');
+const flashError  = document.getElementById('flash-error');
+const uploadPanel  = document.getElementById('upload-panel');
+const previewPanel = document.getElementById('preview-panel');
+const progresoPanel= document.getElementById('progreso-panel');
+const resultPanel  = document.getElementById('resultado-panel');
+
+let sesToken = null, sesItems = [], sesDestinatario = '';
+
+['dragenter','dragover','dragleave','drop'].forEach(ev =>
+    dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }));
+['dragenter','dragover'].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.add('dragover')));
+['dragleave','drop'].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover')));
+
+dropZone.addEventListener('click', () => pdfInput.click());
+dropZone.addEventListener('drop',  e => { pdfInput.files = e.dataTransfer.files; actualizarChips(); });
+pdfInput.addEventListener('change', actualizarChips);
+
+function actualizarChips() {
+    const files = Array.from(pdfInput.files);
+    fileChips.innerHTML = files.map(f =>
+        `<span class="chip"><i class="fas fa-file-pdf"></i>${f.name}</span>`).join('');
+    btnCargar.disabled = files.length === 0;
+}
+
+btnCargar.addEventListener('click', async () => {
+    const files = Array.from(pdfInput.files);
+    if (!files.length) return;
+
+    btnCargar.disabled = true;
+    btnCargar.innerHTML = '<i class="fas fa-circle-notch spin"></i> Leyendo PDFs...';
+    flashError.style.display = 'none';
+
+    const fd = new FormData();
+    files.forEach(f => fd.append('pdfs', f));
+
+    let resp;
+    try {
+        resp = await fetch('/mails_planilla/cargar', { method: 'POST', body: fd });
+    } catch (e) { mostrarError('Error de conexión: ' + e.message); resetCargar(); return; }
+
+    const data = await resp.json();
+    if (!resp.ok || data.error) { mostrarError(data.error || 'Error al leer los PDFs.'); resetCargar(); return; }
+
+    sesToken = data.token;
+    sesItems = data.items;
+    sesDestinatario = document.getElementById('input-destinatario').value.trim();
+    mostrarPreview(data.items);
+});
+
+function mostrarPreview(items) {
+    uploadPanel.style.display = 'none';
+
+    const vacios = items.filter(i => !i.nombre || !i.cuil).length;
+    document.getElementById('preview-summary').innerHTML =
+        `<strong>${items.length}</strong> archivo${items.length !== 1 ? 's' : ''} cargado${items.length !== 1 ? 's' : ''}` +
+        (vacios > 0
+            ? ` — <strong style="color:#d97706;">⚠ ${vacios} con nombre o CUIL vacío (completá manualmente)</strong>`
+            : ' — <span style="color:#16a34a;">✓ todos con datos completos</span>');
+
+    const tbody = document.getElementById('preview-tbody');
+    tbody.innerHTML = '';
+    items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+        if (!item.nombre || !item.cuil) tr.style.background = '#fffbeb';
+        tr.innerHTML = `
+            <td><input type="text" class="prev-nombre" data-idx="${item.idx}" value="${item.nombre}"
+                style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:.83rem;"></td>
+            <td><input type="text" class="prev-cuil" data-idx="${item.idx}" value="${item.cuil}"
+                style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:.83rem;"></td>
+            <td style="color:var(--texto3);font-size:.78rem;">${item.filename}</td>`;
+        tbody.appendChild(tr);
+    });
+
+    previewPanel.style.display = 'block';
+    document.getElementById('btn-enviar').addEventListener('click', iniciarEnvio);
+}
+
+async function iniciarEnvio() {
+    const edits = [];
+    document.querySelectorAll('.prev-nombre').forEach(inp => {
+        const idx  = parseInt(inp.dataset.idx);
+        const cuil = document.querySelector(`.prev-cuil[data-idx="${idx}"]`).value.trim();
+        edits.push({ idx, nombre: inp.value.trim(), cuil });
+    });
+
+    const btnEnviar = document.getElementById('btn-enviar');
+    btnEnviar.disabled = true;
+    btnEnviar.innerHTML = '<i class="fas fa-circle-notch spin"></i> Iniciando...';
+
+    let resp;
+    try {
+        resp = await fetch('/mails_planilla/enviar/iniciar', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: sesToken, edits, destinatario: sesDestinatario }),
+        });
+    } catch (e) { mostrarError('Error de conexión: ' + e.message); resetCargar(); return; }
+
+    const data = await resp.json();
+    if (!resp.ok || data.error) { mostrarError(data.error || 'Error al iniciar envío.'); resetCargar(); return; }
+
+    previewPanel.style.display = 'none';
+    progresoPanel.style.display = 'block';
+    escucharProgreso(sesToken);
+}
+
+function escucharProgreso(token) {
+    const es = new EventSource('/mails_planilla/progreso/' + token);
+    es.onmessage = e => {
+        const d = JSON.parse(e.data);
+        if (d.error) { es.close(); mostrarError(d.error); return; }
+
+        document.getElementById('prog-fill').style.width  = (d.porcentaje || 0) + '%';
+        document.getElementById('prog-pct').textContent   = (d.porcentaje || 0) + '%';
+        document.getElementById('prog-label').textContent = d.mensaje || '';
+        document.getElementById('nombre-actual').textContent = d.nombre_actual || '';
+
+        if (d.listo) {
+            es.close();
+            progresoPanel.style.display = 'none';
+            mostrarResultado(d.items_estado, d.enviados, d.errores, d.total);
+        }
+    };
+    es.onerror = () => { es.close(); mostrarError('Se perdió la conexión con el servidor.'); };
+}
+
+function mostrarResultado(items, enviados, errores, total) {
+    const box = document.getElementById('result-summary-box');
+    if (errores === 0) {
+        box.className = 'result-summary result-ok';
+        box.innerHTML = `<i class="fas fa-check-circle"></i> ${enviados} mail${enviados !== 1 ? 's' : ''} enviado${enviados !== 1 ? 's' : ''} correctamente.`;
+    } else if (enviados === 0) {
+        box.className = 'result-summary result-error';
+        box.innerHTML = `<i class="fas fa-times-circle"></i> No se pudo enviar ningún mail. Verificá las credenciales en .env`;
+    } else {
+        box.className = 'result-summary result-mixed';
+        box.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${enviados} enviados, ${errores} con error.`;
+    }
+
+    const tbody = document.getElementById('result-tbody');
+    tbody.innerHTML = '';
+    (items || []).forEach(item => {
+        const tr = document.createElement('tr');
+        const badge = item.estado === 'enviado'
+            ? '<span class="badge badge-ok">✓ Enviado</span>'
+            : '<span class="badge badge-error">✗ Error</span>';
+        tr.innerHTML = `<td>${item.nombre}</td><td style="color:var(--texto3);font-size:.78rem;">${item.filename}</td><td>${badge}</td><td style="color:var(--rojo);font-size:.78rem;">${item.error || ''}</td>`;
+        tbody.appendChild(tr);
+    });
+
+    resultPanel.style.display = 'block';
+}
+
+function mostrarError(msg) { flashError.textContent = '⚠ ' + msg; flashError.style.display = 'block'; }
+function resetCargar() {
+    btnCargar.disabled = false;
+    btnCargar.innerHTML = '<i class="fas fa-upload"></i> Cargar y previsualizar';
+}
+function volverUpload() {
+    previewPanel.style.display = 'none';
+    uploadPanel.style.display = 'block';
+    resetCargar();
+}
+function reiniciar() {
+    resultPanel.style.display = 'none';
+    uploadPanel.style.display = 'block';
+    pdfInput.value = ''; fileChips.innerHTML = '';
+    btnCargar.disabled = true; btnCargar.innerHTML = '<i class="fas fa-upload"></i> Cargar y previsualizar';
+    flashError.style.display = 'none';
+    sesToken = null; sesItems = [];
+}
+</script>
+{% endblock %}

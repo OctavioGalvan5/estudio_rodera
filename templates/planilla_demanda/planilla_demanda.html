@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+{% block title %}Planilla de Demanda — Estudio Rodera{% endblock %}
+
+{% block extra_style %}
+.file-btn { display:inline-block; background:var(--azul); color:#fff; padding:8px 18px; border-radius:6px; font-size:.83rem; font-weight:700; }
+.btn-download {
+    display:none; width:100%; padding:13px;
+    background:linear-gradient(90deg, var(--verde-dark), var(--verde));
+    color:#fff; border:none; border-radius:9px; font-size:.95rem;
+    font-family:inherit; font-weight:700; cursor:pointer;
+    align-items:center; justify-content:center; gap:10px;
+    text-decoration:none; transition:opacity .2s; margin-top:12px;
+}
+.btn-download:hover { opacity:.9; }
+.edit-calle, .edit-nro {
+    width:100%; padding:5px 8px; border:1.5px solid var(--border);
+    border-radius:5px; font-family:inherit; font-size:.83rem;
+    color:var(--texto); background:#f8fafc; outline:none; transition:.15s;
+}
+.edit-calle:focus, .edit-nro:focus { border-color:var(--azul); background:white; }
+#revision-table tbody tr { border-bottom:1px solid var(--border); }
+#revision-table tbody tr:hover { background:#f8fafc; }
+#revision-table tbody tr.fila-dudosa { background:#fffbeb; }
+#revision-table tbody tr.fila-dudosa:hover { background:#fef3c7; }
+#revision-table td { padding:8px 10px; color:var(--texto2); vertical-align:middle; }
+{% endblock %}
+
+{% block subtabs %}
+<div class="subtabs-bar">
+    <div class="subtabs-inner">
+        <a href="{{ url_for('planilla_demanda') }}" class="subtab active">
+            <i class="fas fa-file-alt"></i> Generar planillas
+        </a>
+        <a href="{{ url_for('mails_planilla') }}" class="subtab">
+            <i class="fas fa-paper-plane"></i> Enviar planillas firmadas
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+  <div class="card card-lg">
+    <h1 class="card-title" style="font-size:1.3rem;margin-bottom:6px;">
+        <i class="fas fa-file-alt" style="font-size:1.1rem;color:var(--azul-dark);opacity:.8;"></i>
+        Planilla de Sorteo de Demanda
+    </h1>
+    <p class="card-subtitle">Cámara Federal de Apelaciones de Bahía Blanca &mdash; Formulario único de ingreso</p>
+
+    <!-- FORMULARIO -->
+    <div id="form-panel">
+        <div id="flash-error" class="alert alert-danger" style="display:none;"></div>
+
+        <div class="form-group">
+            <label><i class="fas fa-calendar-alt" style="color:var(--azul);margin-right:5px;"></i>Fecha</label>
+            <input type="date" id="fecha" value="{{ hoy }}" required>
+        </div>
+
+        <hr class="divider">
+
+        <div class="form-group">
+            <label><i class="fas fa-table" style="color:var(--azul);margin-right:5px;"></i>Excel con los intervinientes</label>
+            <div class="drop-zone" id="drop-zone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Arrastrá y soltá el archivo Excel aquí</p>
+                <span class="file-btn">Seleccionar archivo</span>
+                <input type="file" id="excel-input" accept=".xlsx,.xls" required>
+            </div>
+            <div class="file-tag" id="file-tag"></div>
+        </div>
+
+        <div class="info-box">
+            <strong>Columnas esperadas</strong> (fila 1 = encabezados):<br>
+            <code>Apellido y Nombre</code> &bull; <code>CUIL</code> &bull;
+            <code>Nacionalidad</code> &bull; <code>Domicilio</code> &bull;
+            <code>Localidad</code> &bull; <code>Provincia</code>
+        </div>
+
+        <button class="btn-submit" id="btn-generar" type="button">
+            <i class="fas fa-cogs"></i> Generar planillas
+        </button>
+    </div>
+
+    <!-- PROGRESO -->
+    <div id="progreso-panel">
+        <div class="progress-wrap">
+            <div class="progress-label">
+                <span id="prog-label">Iniciando...</span>
+                <span id="prog-pct">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+        </div>
+
+        <div class="nombre-actual" id="nombre-actual"></div>
+
+        <div class="steps">
+            <div class="step pendiente" id="step-excel">
+                <div class="step-icon"><i class="fas fa-table"></i></div>
+                <div class="step-text">
+                    <div class="step-label">Leer Excel</div>
+                    <div class="step-detail" id="step-excel-detail">Pendiente</div>
+                </div>
+            </div>
+            <div class="step pendiente" id="step-genero">
+                <div class="step-icon"><i class="fas fa-brain"></i></div>
+                <div class="step-text">
+                    <div class="step-label">Extrayendo datos</div>
+                    <div class="step-detail" id="step-genero-detail">Pendiente</div>
+                </div>
+            </div>
+            <div class="step pendiente" id="step-pdf">
+                <div class="step-icon"><i class="fas fa-file-pdf"></i></div>
+                <div class="step-text">
+                    <div class="step-label">Generar PDFs</div>
+                    <div class="step-detail" id="step-pdf-detail">Pendiente</div>
+                </div>
+            </div>
+            <div class="step pendiente" id="step-zip">
+                <div class="step-icon"><i class="fas fa-file-archive"></i></div>
+                <div class="step-text">
+                    <div class="step-label">Comprimir archivos</div>
+                    <div class="step-detail" id="step-zip-detail">Pendiente</div>
+                </div>
+            </div>
+        </div>
+
+        <a class="btn-download" id="btn-download" href="#">
+            <i class="fas fa-download"></i> Descargar planillas (.zip)
+        </a>
+
+        <div class="alert alert-danger" id="error-panel" style="display:none;"></div>
+
+        <button class="btn-submit" id="btn-volver" style="display:none;margin-top:10px;background:linear-gradient(90deg,#475569,#64748b);" type="button">
+            <i class="fas fa-arrow-left"></i> Volver al formulario
+        </button>
+    </div>
+  </div>
+</div>
+
+<!-- REVISIÓN — full width fuera del page-wrapper -->
+<div id="revision-panel" style="display:none;max-width:1100px;margin:0 auto 80px;padding:0 20px;">
+    <div class="card card-lg">
+        <div class="card-title" style="font-size:1.1rem;margin-bottom:6px;">
+            <i class="fas fa-search" style="color:var(--azul);"></i> Revisión de datos extraídos por IA
+        </div>
+        <p class="card-subtitle">
+            Verificá los domicilios y géneros antes de generar las planillas.
+            Las filas <strong style="color:#d97706;">⚠</strong> tienen mayor probabilidad de error.
+        </p>
+        <div id="revision-summary" style="font-size:.85rem;color:var(--texto2);margin-bottom:14px;padding:10px 14px;background:#f8fafc;border-radius:7px;border:1px solid var(--border);"></div>
+        <div style="overflow-x:auto;">
+            <table id="revision-table" style="width:100%;border-collapse:collapse;font-size:.83rem;">
+                <thead>
+                    <tr style="background:#f5f8fb;border-bottom:2px solid var(--border);">
+                        <th style="padding:9px 10px;text-align:center;width:32px;"></th>
+                        <th style="padding:9px 10px;text-align:left;min-width:190px;">Nombre</th>
+                        <th style="padding:9px 10px;text-align:left;min-width:180px;">Original (Excel)</th>
+                        <th style="padding:9px 10px;text-align:left;min-width:160px;">Calle</th>
+                        <th style="padding:9px 10px;text-align:left;width:85px;">Nro</th>
+                        <th style="padding:9px 10px;text-align:left;width:90px;">Sexo</th>
+                    </tr>
+                </thead>
+                <tbody id="revision-tbody"></tbody>
+            </table>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap;">
+            <button class="btn btn-gray" id="btn-cancelar-revision">← Cancelar</button>
+            <button class="btn-submit" id="btn-confirmar" style="width:auto;padding:11px 24px;margin-top:0;font-size:.9rem;">
+                <i class="fas fa-check-circle"></i> Confirmar y Generar PDFs
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone   = document.getElementById('drop-zone');
+const fileInput  = document.getElementById('excel-input');
+const fileTag    = document.getElementById('file-tag');
+const btnGenerar = document.getElementById('btn-generar');
+const formPanel  = document.getElementById('form-panel');
+const progPanel  = document.getElementById('progreso-panel');
+const revPanel   = document.getElementById('revision-panel');
+let   sesToken   = null, sesFecha = null, sesTotal = null;
+const flashError = document.getElementById('flash-error');
+
+['dragenter','dragover','dragleave','drop'].forEach(ev =>
+    dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }));
+['dragenter','dragover'].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.add('dragover')));
+['dragleave','drop'].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover')));
+
+dropZone.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f) { fileInput.files = e.dataTransfer.files; mostrarArchivo(f.name); }
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) mostrarArchivo(fileInput.files[0].name);
+});
+function mostrarArchivo(n) {
+    fileTag.innerHTML = '<i class="fas fa-check-circle" style="color:var(--verde);margin-right:4px;"></i>' + n;
+}
+
+btnGenerar.addEventListener('click', async () => {
+    const fecha = document.getElementById('fecha').value;
+    const file  = fileInput.files[0];
+    flashError.style.display = 'none';
+    if (!fecha) { mostrarError('La fecha es obligatoria.'); return; }
+    if (!file)  { mostrarError('Debe seleccionar un archivo Excel.'); return; }
+
+    btnGenerar.disabled = true;
+    btnGenerar.innerHTML = '<i class="fas fa-circle-notch spin"></i> Enviando...';
+
+    const fd = new FormData();
+    fd.append('fecha', fecha);
+    fd.append('excel', file);
+
+    let resp;
+    try {
+        resp = await fetch('/planilla_demanda/iniciar', { method: 'POST', body: fd });
+    } catch (e) {
+        btnGenerar.disabled = false;
+        btnGenerar.innerHTML = '<i class="fas fa-cogs"></i> Generar planillas';
+        mostrarError('Error de conexión: ' + e.message); return;
+    }
+
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+        btnGenerar.disabled = false;
+        btnGenerar.innerHTML = '<i class="fas fa-cogs"></i> Generar planillas';
+        mostrarError(data.error || 'Error desconocido.'); return;
+    }
+
+    sesToken = data.token; sesFecha = fecha; sesTotal = data.total;
+    formPanel.style.display = 'none';
+    progPanel.style.display = 'block';
+    setStep('step-excel', 'ok', 'Leído correctamente');
+    escucharProgreso(data.token, data.total, fecha);
+});
+
+function escucharProgreso(token, total, fecha) {
+    const es = new EventSource('/planilla_demanda/progreso/' + token);
+    es.onmessage = e => {
+        const d = JSON.parse(e.data);
+        if (d.error) { es.close(); mostrarPanelError(d.error); return; }
+
+        setProgreso(d.porcentaje || 0, d.mensaje || '');
+        document.getElementById('nombre-actual').textContent = d.nombre_actual || '';
+
+        if (d.etapa === 'genero' || d.etapa === 'domicilio') setStep('step-genero', 'activo', d.mensaje || '');
+        if (d.etapa === 'revision') {
+            es.close();
+            setStep('step-genero', 'ok', 'Datos extraídos');
+            progPanel.style.display = 'none';
+            mostrarRevision(d.personas_revision || []);
+            return;
+        }
+        if (d.etapa === 'pdf') { setStep('step-genero', 'ok', 'Datos extraídos'); setStep('step-pdf', 'activo', d.mensaje || ''); }
+        if (d.etapa === 'zip') { setStep('step-pdf', 'ok', `${total} PDFs generados`); setStep('step-zip', 'activo', 'Comprimiendo...'); }
+        if (d.listo && d.etapa === 'listo') {
+            es.close();
+            setProgreso(100, d.mensaje);
+            setStep('step-zip', 'ok', 'ZIP listo');
+            document.getElementById('nombre-actual').textContent = '';
+            const url = '/planilla_demanda/descargar/' + token;
+            const btn = document.getElementById('btn-download');
+            btn.href = url; btn.style.display = 'flex';
+            window.location.href = url;
+        }
+    };
+    es.onerror = () => { es.close(); mostrarPanelError('Se perdió la conexión con el servidor.'); };
+}
+
+function setProgreso(pct, label) {
+    document.getElementById('prog-fill').style.width  = pct + '%';
+    document.getElementById('prog-pct').textContent   = pct + '%';
+    document.getElementById('prog-label').textContent = label;
+}
+function setStep(id, estado, detalle) {
+    const el = document.getElementById(id);
+    el.className = 'step ' + estado;
+    el.querySelector('.step-detail').textContent = detalle;
+    const icon = el.querySelector('.step-icon i');
+    if (estado === 'activo') icon.className = 'fas fa-circle-notch spin';
+    else if (estado === 'ok')    icon.className = 'fas fa-check';
+    else if (estado === 'error') icon.className = 'fas fa-times';
+}
+function mostrarError(msg) { flashError.textContent = '⚠ ' + msg; flashError.style.display = 'block'; }
+function mostrarPanelError(msg) {
+    const ep = document.getElementById('error-panel');
+    ep.textContent = '⚠ ' + msg; ep.style.display = 'block';
+    document.getElementById('btn-volver').style.display = 'flex';
+}
+
+document.getElementById('btn-volver').addEventListener('click', () => {
+    progPanel.style.display = 'none';
+    formPanel.style.display = 'block';
+    btnGenerar.disabled = false;
+    btnGenerar.innerHTML = '<i class="fas fa-cogs"></i> Generar planillas';
+    ['step-excel','step-genero','step-pdf','step-zip'].forEach(id => setStep(id, 'pendiente', 'Pendiente'));
+    document.getElementById('error-panel').style.display = 'none';
+    document.getElementById('btn-volver').style.display = 'none';
+    document.getElementById('btn-download').style.display = 'none';
+});
+
+function mostrarRevision(items) {
+    revPanel.style.display = 'block';
+    const dudosos = items.filter(i => i.dudoso).length;
+    document.getElementById('revision-summary').innerHTML =
+        `<strong>${items.length}</strong> domicilio${items.length !== 1 ? 's' : ''} extraído${items.length !== 1 ? 's' : ''} por IA` +
+        (dudosos > 0
+            ? ` — <strong style="color:#d97706;">⚠ ${dudosos} con posible ambigüedad</strong>`
+            : ' — <span style="color:#16a34a;">✓ todos confiables</span>');
+
+    const tbody = document.getElementById('revision-tbody');
+    tbody.innerHTML = '';
+    items.forEach(item => {
+        const tr = document.createElement('tr');
+        if (item.dudoso) tr.classList.add('fila-dudosa');
+        tr.innerHTML = `
+            <td style="text-align:center;font-size:1rem;">${item.dudoso ? '⚠' : '<span style="color:#16a34a;">✓</span>'}</td>
+            <td style="white-space:nowrap;">${item.nombre}</td>
+            <td style="color:var(--texto3);font-size:.78rem;">${item.domicilio_original}</td>
+            <td><input type="text" class="edit-calle" data-idx="${item.idx}" value="${item.calle}"></td>
+            <td><input type="text" class="edit-nro"   data-idx="${item.idx}" value="${item.nro_dom}"></td>
+            <td><select class="edit-sexo" data-idx="${item.idx}" style="width:100%;padding:5px 6px;border:1.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:.83rem;background:#f8fafc;">
+                <option value="Masc" ${item.sexo === 'Masc' ? 'selected' : ''}>Masc</option>
+                <option value="Fem"  ${item.sexo === 'Fem'  ? 'selected' : ''}>Fem</option>
+            </select></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+async function confirmarYGenerar() {
+    const btnConf = document.getElementById('btn-confirmar');
+    btnConf.disabled = true;
+    btnConf.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Enviando...';
+
+    const items = [];
+    document.querySelectorAll('.edit-calle').forEach(input => {
+        const idx  = parseInt(input.dataset.idx);
+        const nro  = document.querySelector(`.edit-nro[data-idx="${idx}"]`).value.trim();
+        const sexo = document.querySelector(`.edit-sexo[data-idx="${idx}"]`).value;
+        items.push({ idx, calle: input.value.trim(), nro_dom: nro, sexo });
+    });
+
+    let resp;
+    try {
+        resp = await fetch('/planilla_demanda/confirmar/' + sesToken, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items }),
+        });
+    } catch (e) {
+        btnConf.disabled = false;
+        btnConf.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar y Generar PDFs';
+        mostrarError('Error de conexión: ' + e.message); return;
+    }
+    if (!resp.ok) {
+        btnConf.disabled = false;
+        btnConf.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar y Generar PDFs';
+        mostrarError('Error al confirmar.'); return;
+    }
+
+    revPanel.style.display = 'none';
+    progPanel.style.display = 'block';
+    setStep('step-excel',  'ok', 'Leído correctamente');
+    setStep('step-genero', 'ok', 'Datos extraídos y revisados');
+    escucharProgreso(sesToken, sesTotal, sesFecha);
+}
+
+document.getElementById('btn-confirmar').addEventListener('click', confirmarYGenerar);
+document.getElementById('btn-cancelar-revision').addEventListener('click', () => {
+    revPanel.style.display = 'none';
+    formPanel.style.display = 'block';
+    btnGenerar.disabled = false;
+    btnGenerar.innerHTML = '<i class="fas fa-cogs"></i> Generar planillas';
+    ['step-excel','step-genero','step-pdf','step-zip'].forEach(id => setStep(id, 'pendiente', 'Pendiente'));
+});
+</script>
+{% endblock %}
