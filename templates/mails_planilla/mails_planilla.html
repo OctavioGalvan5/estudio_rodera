@@ -43,11 +43,31 @@
                 <label style="display:block;font-size:.78rem;font-weight:700;color:var(--texto2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;">
                     <i class="fas fa-at" style="color:var(--azul);margin-right:5px;font-size:.72rem;"></i>Destinatario
                 </label>
-                <input type="email" id="input-destinatario" value="octaviogalvan20034@gmail.com"
+                <input type="email" id="input-destinatario" placeholder="correo@tribunal.gob.ar" required
                     style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:7px;font-family:inherit;font-size:.88rem;color:var(--texto);background:#f8fafc;outline:none;transition:.2s;"
                     onfocus="this.style.borderColor='var(--azul)';this.style.background='white';"
                     onblur="this.style.borderColor='var(--border2)';this.style.background='#f8fafc';">
-                <p style="font-size:.74rem;color:var(--texto3);margin:4px 0 0;">Podés cambiarlo antes de cargar los archivos.</p>
+                <p style="font-size:.74rem;color:var(--texto3);margin:4px 0 0;">Ingresá el correo del tribunal antes de cargar los archivos.</p>
+            </div>
+
+            <!-- PREVIEW MAIL -->
+            <div style="margin-bottom:18px;">
+                <button type="button" id="btn-toggle-preview" onclick="togglePreview()" style="
+                    background:none;border:1.5px solid var(--border2);border-radius:7px;
+                    padding:7px 14px;font-family:inherit;font-size:.8rem;font-weight:600;
+                    color:var(--texto2);cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s;
+                " onmouseover="this.style.borderColor='var(--azul)';this.style.color='var(--azul)'"
+                   onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--texto2)'">
+                    <i class="fas fa-envelope-open-text" style="font-size:.75rem;"></i>
+                    Ver plantilla del mail
+                    <i id="preview-chevron" class="fas fa-chevron-down" style="font-size:.65rem;margin-left:2px;transition:transform .2s;"></i>
+                </button>
+                <div id="mail-preview-box" style="display:none;margin-top:10px;padding:16px 18px;background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;">
+                    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--texto3);margin-bottom:10px;">
+                        <i class="fas fa-info-circle" style="margin-right:4px;"></i>Plantilla — <span style="color:var(--azul)">[NOMBRE]</span> y <span style="color:var(--azul)">[CUIL]</span> se reemplazan automáticamente por cada planilla
+                    </div>
+                    <pre style="margin:0;font-family:'Lato',sans-serif;font-size:.83rem;line-height:1.65;color:var(--texto);white-space:pre-wrap;word-break:break-word;">{{ mail_preview }}</pre>
+                </div>
             </div>
 
             <div class="drop-zone" id="drop-zone">
@@ -135,6 +155,14 @@
 
 {% block scripts %}
 <script>
+function togglePreview() {
+    const box = document.getElementById('mail-preview-box');
+    const chevron = document.getElementById('preview-chevron');
+    const visible = box.style.display !== 'none';
+    box.style.display = visible ? 'none' : 'block';
+    chevron.style.transform = visible ? '' : 'rotate(180deg)';
+}
+
 const dropZone    = document.getElementById('drop-zone');
 const pdfInput    = document.getElementById('pdf-input');
 const fileChips   = document.getElementById('file-chips');
@@ -168,6 +196,9 @@ function actualizarChips() {
 btnCargar.addEventListener('click', async () => {
     const files = Array.from(pdfInput.files);
     if (!files.length) return;
+
+    const dest = document.getElementById('input-destinatario').value.trim();
+    if (!dest) { mostrarError('Ingresá el correo del destinatario antes de continuar.'); return; }
 
     btnCargar.disabled = true;
     btnCargar.innerHTML = '<i class="fas fa-circle-notch spin"></i> Leyendo PDFs...';

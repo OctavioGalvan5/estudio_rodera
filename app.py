@@ -388,11 +388,17 @@ def planilla_demanda():
 @app.route('/planilla_demanda/iniciar', methods=['POST'])
 @login_required
 def planilla_demanda_iniciar():
-    fecha = request.form.get('fecha', '').strip()
+    fecha_raw = request.form.get('fecha', '').strip()
     excel_file = request.files.get('excel')
 
-    if not fecha or not excel_file or not excel_file.filename:
+    if not fecha_raw or not excel_file or not excel_file.filename:
         return jsonify({'error': 'Faltan datos'}), 400
+
+    try:
+        from datetime import date as _date
+        fecha = _date.fromisoformat(fecha_raw).strftime('%d/%m/%Y')
+    except ValueError:
+        fecha = fecha_raw
 
     try:
         personas = leer_excel(excel_file)
@@ -625,7 +631,9 @@ def planilla_demanda_descargar(token):
 @app.route('/mails_planilla')
 @login_required
 def mails_planilla():
-    return render_template('mails_planilla/mails_planilla.html')
+    from services.mails_planilla.mail_service import CUERPO_TEMPLATE
+    preview = CUERPO_TEMPLATE.replace('{nombre}', '[NOMBRE]').replace('{cuil}', '[CUIL]')
+    return render_template('mails_planilla/mails_planilla.html', mail_preview=preview)
 
 
 @app.route('/mails_planilla/cargar', methods=['POST'])
