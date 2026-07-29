@@ -324,12 +324,6 @@ def ver_cliente(id):
             pdf_lista_buffer.seek(0)
             archivos_generados["lista_formularios.pdf"] = pdf_lista_buffer
 
-            if sabana_writer.pages:
-                sabana_buffer = BytesIO()
-                sabana_writer.write(sabana_buffer)
-                sabana_buffer.seek(0)
-                archivos_generados["sabana_formularios.pdf"] = sabana_buffer
-
             zip_buffer = BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
                 for nombre_archivo, contenido in archivos_generados.items():
