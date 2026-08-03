@@ -2,6 +2,7 @@ import os
 import json
 from io import BytesIO
 
+import fitz
 import openai
 import openpyxl
 from dotenv import load_dotenv
@@ -361,6 +362,20 @@ def nombre_archivo_pdf(nombre):
     return _nombre_archivo(nombre)
 
 
+def _aplanar_pdf(pdf_bytes: bytes) -> bytes:
+    """Bloquea todos los campos del formulario (solo lectura) para que no sean editables."""
+    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+    for page in doc:
+        for widget in page.widgets():
+            widget.field_flags = 1  # ReadOnly
+            widget.update()
+    buf = BytesIO()
+    doc.save(buf, garbage=3, deflate=True)
+    doc.close()
+    buf.seek(0)
+    return buf.read()
+
+
 def _llenar_pdf(intervinientes, fecha):
     reader = PdfReader(PDF_TEMPLATE)
     writer = PdfWriter()
@@ -388,5 +403,4 @@ def _llenar_pdf(intervinientes, fecha):
 
     buf = BytesIO()
     writer.write(buf)
-    buf.seek(0)
-    return buf
+    return BytesIO(_aplanar_pdf(buf.getvalue()))
