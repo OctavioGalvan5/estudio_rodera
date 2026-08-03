@@ -363,15 +363,14 @@ def nombre_archivo_pdf(nombre):
 
 
 def _aplanar_pdf(pdf_bytes: bytes) -> bytes:
-    """Aplana el PDF renderizando cada página como imagen estática (no editable)."""
+    """Aplana el PDF incrustando cada página como XObject (vectorial, sin campos editables)."""
     src = fitz.open(stream=pdf_bytes, filetype='pdf')
     out = fitz.open()
-    for page in src:
-        pix = page.get_pixmap(dpi=200, alpha=False)
+    for i, page in enumerate(src):
         new_page = out.new_page(width=page.rect.width, height=page.rect.height)
-        new_page.insert_image(new_page.rect, pixmap=pix)
+        new_page.show_pdf_page(new_page.rect, src, i)
     buf = BytesIO()
-    out.save(buf, deflate=True)
+    out.save(buf, deflate=True, garbage=4)
     out.close()
     src.close()
     buf.seek(0)
