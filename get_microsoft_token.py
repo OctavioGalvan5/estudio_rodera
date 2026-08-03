@@ -16,16 +16,19 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import msal
+from dotenv import load_dotenv
+import os
 
 REDIRECT_URI = 'http://localhost:8888/callback'
-SCOPES = ['https://graph.microsoft.com/Mail.Send', 'offline_access']
+SCOPES = ['https://graph.microsoft.com/Mail.Send']
 CACHE_FILE = pathlib.Path(__file__).parent / 'services' / 'mails_planilla' / 'ms_token_cache.json'
 
 
 def main():
+    load_dotenv(pathlib.Path(__file__).parent / '.env')
     print('=== Autenticación Microsoft Graph ===\n')
-    client_id     = input('Azure Client ID:     ').strip()
-    client_secret = input('Azure Client Secret: ').strip()
+    client_id     = os.getenv('AZURE_CLIENT_ID', '').strip() or input('Azure Client ID:     ').strip()
+    client_secret = os.getenv('AZURE_CLIENT_SECRET', '').strip() or input('Azure Client Secret: ').strip()
 
     cache = msal.SerializableTokenCache()
 

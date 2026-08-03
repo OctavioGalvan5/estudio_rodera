@@ -28,3 +28,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Token cache de Microsoft (datos sensibles)
+ms_token_cache*.json
