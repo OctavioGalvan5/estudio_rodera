@@ -363,15 +363,17 @@ def nombre_archivo_pdf(nombre):
 
 
 def _aplanar_pdf(pdf_bytes: bytes) -> bytes:
-    """Bloquea todos los campos del formulario (solo lectura) para que no sean editables."""
-    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
-    for page in doc:
-        for widget in page.widgets():
-            widget.field_flags = 1  # ReadOnly
-            widget.update()
+    """Aplana el PDF renderizando cada página como imagen estática (no editable)."""
+    src = fitz.open(stream=pdf_bytes, filetype='pdf')
+    out = fitz.open()
+    for page in src:
+        pix = page.get_pixmap(dpi=200, alpha=False)
+        new_page = out.new_page(width=page.rect.width, height=page.rect.height)
+        new_page.insert_image(new_page.rect, pixmap=pix)
     buf = BytesIO()
-    doc.save(buf, garbage=3, deflate=True)
-    doc.close()
+    out.save(buf, deflate=True)
+    out.close()
+    src.close()
     buf.seek(0)
     return buf.read()
 
