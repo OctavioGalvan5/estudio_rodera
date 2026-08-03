@@ -1,19 +1,16 @@
+import base64
 import os
-import smtplib
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from io import BytesIO
-
 import pathlib
 
+import msal
+import requests
 from dotenv import load_dotenv
+from io import BytesIO
 from pypdf import PdfReader
 
-# Sube desde services/mails_planilla/ → services/ → estudio_rodera/ → app-web-prueba-main/
 load_dotenv(pathlib.Path(__file__).resolve().parents[3] / '.env')
 
-DESTINATARIO_DEFAULT = 'octaviogalvan20034@gmail.com'
+CACHE_FILE = pathlib.Path(__file__).parent / 'ms_token_cache.json'
 
 CUERPO_TEMPLATE = """\
 Estimados:
@@ -44,8 +41,7 @@ def _leer_campo(fields, nombre):
 
 def extraer_datos_pdf(pdf_bytes):
     """Extrae nombre y CUIL del primer interviniente de una planilla de demanda.
-    Devuelve (nombre, cuil). Retorna ('', '') si los campos no son legibles
-    (p. ej. PDF aplanado tras firma digital)."""
+    Devuelve (nombre, cuil). Retorna ('', '') si los campos no son legibles."""
     try:
         reader = PdfReader(BytesIO(pdf_bytes))
         fields = reader.get_fields() or {}
@@ -56,44 +52,98 @@ def extraer_datos_pdf(pdf_bytes):
         return '', ''
 
 
-def _smtp_config(usuario):
-    """Devuelve (host, port, use_ssl) según el dominio del correo."""
-    dominio = usuario.split('@')[-1].lower()
-    if dominio in ('hotmail.com', 'outlook.com', 'live.com', 'msn.com'):
-        return 'smtp.office365.com', 587, False
-    # Gmail por defecto
-    return 'smtp.gmail.com', 465, True
+def _cargar_cache():
+    """Carga el token cache desde env var (producción) o archivo (desarrollo)."""
+    cache = msal.SerializableTokenCache()
+    cache_b64 = os.getenv('MS_TOKEN_CACHE', '').strip()
+    if cache_b64:
+        cache.deserialize(base64.b64decode(cache_b64).decode('utf-8'))
+    elif CACHE_FILE.exists():
+        cache.deserialize(CACHE_FILE.read_text(encoding='utf-8'))
+    return cache
 
 
-def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario=None):
-    """Envía el mail al tribunal con el PDF firmado adjunto.
-    Levanta ValueError si faltan credenciales, o SMTPException si falla el envío."""
-    mail_user = os.getenv('GMAIL_USER', '').strip()
-    mail_pass = os.getenv('GMAIL_APP_PASSWORD', '').strip()
-    if not mail_user or not mail_pass:
-        raise ValueError('Configurá GMAIL_USER y GMAIL_APP_PASSWORD en el archivo .env')
+def _guardar_cache(cache):
+    """Persiste el cache actualizado al archivo y a la variable de entorno en memoria."""
+    serialized = cache.serialize()
+    if CACHE_FILE.parent.exists():
+        CACHE_FILE.write_text(serialized, encoding='utf-8')
+    os.environ['MS_TOKEN_CACHE'] = base64.b64encode(serialized.encode('utf-8')).decode()
 
-    to = destinatario or DESTINATARIO_DEFAULT
 
-    msg = MIMEMultipart()
-    msg['From']    = mail_user
-    msg['To']      = to
-    msg['Subject'] = f'Solicito sorteo de demanda {nombre}'
+def _get_access_token():
+    client_id     = os.getenv('AZURE_CLIENT_ID', '').strip()
+    client_secret = os.getenv('AZURE_CLIENT_SECRET', '').strip()
 
-    msg.attach(MIMEText(CUERPO_TEMPLATE.format(nombre=nombre, cuil=cuil), 'plain', 'utf-8'))
+    if not client_id or not client_secret:
+        raise ValueError('Configurá AZURE_CLIENT_ID y AZURE_CLIENT_SECRET en el .env')
 
-    adjunto = MIMEApplication(pdf_bytes, _subtype='pdf')
-    adjunto.add_header('Content-Disposition', 'attachment', filename=pdf_filename)
-    msg.attach(adjunto)
+    cache = _cargar_cache()
 
-    host, port, use_ssl = _smtp_config(mail_user)
-    if use_ssl:
-        with smtplib.SMTP_SSL(host, port) as smtp:
-            smtp.login(mail_user, mail_pass)
-            smtp.send_message(msg)
-    else:
-        with smtplib.SMTP(host, port) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.login(mail_user, mail_pass)
-            smtp.send_message(msg)
+    app_ms = msal.ConfidentialClientApplication(
+        client_id,
+        authority='https://login.microsoftonline.com/consumers',
+        client_credential=client_secret,
+        token_cache=cache,
+    )
+
+    accounts = app_ms.get_accounts()
+    if not accounts:
+        raise ValueError(
+            'No hay sesión Microsoft guardada. '
+            'Corré get_microsoft_token.py en tu PC y pegá MS_TOKEN_CACHE en el .env'
+        )
+
+    result = app_ms.acquire_token_silent(
+        ['https://graph.microsoft.com/Mail.Send'],
+        account=accounts[0],
+    )
+
+    if cache.has_state_changed:
+        _guardar_cache(cache)
+
+    if not result or 'access_token' not in result:
+        raise ValueError(f'No se pudo obtener token Microsoft: {result}')
+
+    return result['access_token']
+
+
+def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario):
+    """Envía el mail al tribunal con el PDF firmado adjunto via Microsoft Graph API."""
+    if not destinatario:
+        raise ValueError('El destinatario es obligatorio')
+
+    access_token = _get_access_token()
+
+    mensaje = {
+        'message': {
+            'subject': f'Solicito sorteo de demanda {nombre}',
+            'body': {
+                'contentType': 'Text',
+                'content': CUERPO_TEMPLATE.format(nombre=nombre, cuil=cuil),
+            },
+            'toRecipients': [{'emailAddress': {'address': destinatario}}],
+            'attachments': [
+                {
+                    '@odata.type': '#microsoft.graph.fileAttachment',
+                    'name': pdf_filename,
+                    'contentType': 'application/pdf',
+                    'contentBytes': base64.b64encode(pdf_bytes).decode(),
+                }
+            ],
+        },
+        'saveToSentItems': True,
+    }
+
+    resp = requests.post(
+        'https://graph.microsoft.com/v1.0/me/sendMail',
+        headers={
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+        },
+        json=mensaje,
+        timeout=30,
+    )
+
+    if resp.status_code != 202:
+        raise Exception(f'Error Graph API {resp.status_code}: {resp.text}')

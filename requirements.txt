@@ -11,3 +11,5 @@ python-dotenv
 psycopg2-binary
 gunicorn
 openpyxl
+msal
+requests
