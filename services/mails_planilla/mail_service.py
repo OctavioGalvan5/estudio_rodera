@@ -57,10 +57,18 @@ def _cargar_cache():
     cache = msal.SerializableTokenCache()
     cache_b64 = os.getenv('MS_TOKEN_CACHE', '').strip()
     if cache_b64:
-        padding = 4 - len(cache_b64) % 4
-        if padding != 4:
-            cache_b64 += '=' * padding
-        cache.deserialize(base64.b64decode(cache_b64).decode('utf-8'))
+        try:
+            # Limpiar espacios/saltos de línea que puede agregar Dokploy
+            cache_b64 = ''.join(cache_b64.split())
+            padding = 4 - len(cache_b64) % 4
+            if padding != 4:
+                cache_b64 += '=' * padding
+            decoded = base64.b64decode(cache_b64)
+            cache.deserialize(decoded.decode('utf-8'))
+        except Exception:
+            # Si el env var está corrupto, intentar con el archivo
+            if CACHE_FILE.exists():
+                cache.deserialize(CACHE_FILE.read_text(encoding='utf-8'))
     elif CACHE_FILE.exists():
         cache.deserialize(CACHE_FILE.read_text(encoding='utf-8'))
     return cache
