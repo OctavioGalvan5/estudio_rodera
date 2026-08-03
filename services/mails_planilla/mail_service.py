@@ -56,18 +56,27 @@ def extraer_datos_pdf(pdf_bytes):
         return '', ''
 
 
+def _smtp_config(usuario):
+    """Devuelve (host, port, use_ssl) según el dominio del correo."""
+    dominio = usuario.split('@')[-1].lower()
+    if dominio in ('hotmail.com', 'outlook.com', 'live.com', 'msn.com'):
+        return 'smtp.office365.com', 587, False
+    # Gmail por defecto
+    return 'smtp.gmail.com', 465, True
+
+
 def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario=None):
     """Envía el mail al tribunal con el PDF firmado adjunto.
     Levanta ValueError si faltan credenciales, o SMTPException si falla el envío."""
-    gmail_user = os.getenv('GMAIL_USER', '').strip()
-    gmail_pass = os.getenv('GMAIL_APP_PASSWORD', '').strip()
-    if not gmail_user or not gmail_pass:
+    mail_user = os.getenv('GMAIL_USER', '').strip()
+    mail_pass = os.getenv('GMAIL_APP_PASSWORD', '').strip()
+    if not mail_user or not mail_pass:
         raise ValueError('Configurá GMAIL_USER y GMAIL_APP_PASSWORD en el archivo .env')
 
     to = destinatario or DESTINATARIO_DEFAULT
 
     msg = MIMEMultipart()
-    msg['From']    = gmail_user
+    msg['From']    = mail_user
     msg['To']      = to
     msg['Subject'] = f'Solicito sorteo de demanda {nombre}'
 
@@ -77,6 +86,14 @@ def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario=Non
     adjunto.add_header('Content-Disposition', 'attachment', filename=pdf_filename)
     msg.attach(adjunto)
 
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        smtp.login(gmail_user, gmail_pass)
-        smtp.send_message(msg)
+    host, port, use_ssl = _smtp_config(mail_user)
+    if use_ssl:
+        with smtplib.SMTP_SSL(host, port) as smtp:
+            smtp.login(mail_user, mail_pass)
+            smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(mail_user, mail_pass)
+            smtp.send_message(msg)
