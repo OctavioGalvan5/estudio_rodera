@@ -2,7 +2,6 @@ import os
 import json
 from io import BytesIO
 
-import fitz
 import openai
 import openpyxl
 from dotenv import load_dotenv
@@ -362,21 +361,6 @@ def nombre_archivo_pdf(nombre):
     return _nombre_archivo(nombre)
 
 
-def _aplanar_pdf(pdf_bytes: bytes) -> bytes:
-    """Aplana el PDF incrustando cada página como XObject (vectorial, sin campos editables)."""
-    src = fitz.open(stream=pdf_bytes, filetype='pdf')
-    out = fitz.open()
-    for i, page in enumerate(src):
-        new_page = out.new_page(width=page.rect.width, height=page.rect.height)
-        new_page.show_pdf_page(new_page.rect, src, i)
-    buf = BytesIO()
-    out.save(buf, deflate=True, garbage=4)
-    out.close()
-    src.close()
-    buf.seek(0)
-    return buf.read()
-
-
 def _llenar_pdf(intervinientes, fecha):
     reader = PdfReader(PDF_TEMPLATE)
     writer = PdfWriter()
@@ -404,4 +388,5 @@ def _llenar_pdf(intervinientes, fecha):
 
     buf = BytesIO()
     writer.write(buf)
-    return BytesIO(_aplanar_pdf(buf.getvalue()))
+    buf.seek(0)
+    return buf
