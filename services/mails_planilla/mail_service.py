@@ -1,11 +1,15 @@
 import base64
 import os
 import pathlib
+import smtplib
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from io import BytesIO
 
 import msal
 import requests
 from dotenv import load_dotenv
-from io import BytesIO
 from pypdf import PdfReader
 
 load_dotenv(pathlib.Path(__file__).resolve().parents[3] / '.env')
@@ -52,21 +56,40 @@ def extraer_datos_pdf(pdf_bytes):
         return '', ''
 
 
+# ── Gmail SMTP ────────────────────────────────────────────────────────────────
+
+def _enviar_gmail(nombre, cuil, pdf_bytes, pdf_filename, destinatario):
+    mail_user = os.getenv('GMAIL_USER', '').strip()
+    mail_pass = os.getenv('GMAIL_APP_PASSWORD', '').strip()
+
+    msg = MIMEMultipart()
+    msg['From']    = mail_user
+    msg['To']      = destinatario
+    msg['Subject'] = f'Solicito sorteo de demanda {nombre}'
+    msg.attach(MIMEText(CUERPO_TEMPLATE.format(nombre=nombre, cuil=cuil), 'plain', 'utf-8'))
+
+    adjunto = MIMEApplication(pdf_bytes, _subtype='pdf')
+    adjunto.add_header('Content-Disposition', 'attachment', filename=pdf_filename)
+    msg.attach(adjunto)
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login(mail_user, mail_pass)
+        smtp.send_message(msg)
+
+
+# ── Microsoft Graph API ───────────────────────────────────────────────────────
+
 def _cargar_cache():
-    """Carga el token cache desde env var (producción) o archivo (desarrollo)."""
     cache = msal.SerializableTokenCache()
     cache_b64 = os.getenv('MS_TOKEN_CACHE', '').strip()
     if cache_b64:
         try:
-            # Limpiar espacios/saltos de línea que puede agregar Dokploy
             cache_b64 = ''.join(cache_b64.split())
             padding = 4 - len(cache_b64) % 4
             if padding != 4:
                 cache_b64 += '=' * padding
-            decoded = base64.b64decode(cache_b64)
-            cache.deserialize(decoded.decode('utf-8'))
+            cache.deserialize(base64.b64decode(cache_b64).decode('utf-8'))
         except Exception:
-            # Si el env var está corrupto, intentar con el archivo
             if CACHE_FILE.exists():
                 cache.deserialize(CACHE_FILE.read_text(encoding='utf-8'))
     elif CACHE_FILE.exists():
@@ -75,7 +98,6 @@ def _cargar_cache():
 
 
 def _guardar_cache(cache):
-    """Persiste el cache actualizado al archivo y a la variable de entorno en memoria."""
     serialized = cache.serialize()
     if CACHE_FILE.parent.exists():
         CACHE_FILE.write_text(serialized, encoding='utf-8')
@@ -90,7 +112,6 @@ def _get_access_token():
         raise ValueError('Configurá AZURE_CLIENT_ID y AZURE_CLIENT_SECRET en el .env')
 
     cache = _cargar_cache()
-
     app_ms = msal.ConfidentialClientApplication(
         client_id,
         authority='https://login.microsoftonline.com/consumers',
@@ -119,11 +140,7 @@ def _get_access_token():
     return result['access_token']
 
 
-def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario):
-    """Envía el mail al tribunal con el PDF firmado adjunto via Microsoft Graph API."""
-    if not destinatario:
-        raise ValueError('El destinatario es obligatorio')
-
+def _enviar_microsoft(nombre, cuil, pdf_bytes, pdf_filename, destinatario):
     access_token = _get_access_token()
 
     mensaje = {
@@ -158,3 +175,20 @@ def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario):
 
     if resp.status_code != 202:
         raise Exception(f'Error Graph API {resp.status_code}: {resp.text}')
+
+
+# ── Punto de entrada ──────────────────────────────────────────────────────────
+
+def enviar_mail_planilla(nombre, cuil, pdf_bytes, pdf_filename, destinatario):
+    """Envía el mail al tribunal. Usa Gmail si GMAIL_USER está configurado,
+    si no usa Microsoft Graph API (Hotmail)."""
+    if not destinatario:
+        raise ValueError('El destinatario es obligatorio')
+
+    gmail_user = os.getenv('GMAIL_USER', '').strip()
+    gmail_pass = os.getenv('GMAIL_APP_PASSWORD', '').strip()
+
+    if gmail_user and gmail_pass:
+        _enviar_gmail(nombre, cuil, pdf_bytes, pdf_filename, destinatario)
+    else:
+        _enviar_microsoft(nombre, cuil, pdf_bytes, pdf_filename, destinatario)
