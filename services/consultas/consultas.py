@@ -71,6 +71,12 @@ CHECKBOX_MAPPING = {
     "PS_6.305_Carta_Poder": "ps_6_305_carta_poder",
     "Renuncia_condicionada": "renuncia_condicionada",
     "Telegrama_revocando_poder": "telegrama_revocando_poder",
+    "poder_AR_La_plata": "poder_ar_la_plata",
+    "poder_AR_punta_alta": "poder_ar_punta_alta",
+    "formularios_Jubilacion_nueva": "formularios_jubilacion_nueva",
+    "formularios_Jubilacion_PC_nueva": "formularios_jubilacion_pc_nueva",
+    "formularios_Jubilacion_Moratoria_nueva": "formularios_jubilacion_moratoria_nueva",
+    "formularios_Pension_nueva": "formularios_pension_nueva",
 }
 
 
@@ -113,6 +119,8 @@ FORMULARIOS_MAPPING = {
     "PS_6.305_Carta_Poder":                                 {"path": _f("PS_6.305_Carta_Poder.pdf"),                               "label": "PS 6.305 Carta Poder"},
     "Renuncia_condicionada":                                {"path": _f("Renuncia_condicionada.pdf"),                               "label": "Renuncia condicionada"},
     "Telegrama_revocando_poder":                            {"path": _f("Telegrama_revocando_poder.pdf"),                           "label": "Telegrama revocando poder"},
+    "poder_AR_La_plata":                                    {"path": _f("poder la plata.pdf"),                                     "label": "Poder AR La Plata"},
+    "poder_AR_punta_alta":                                  {"path": _f("poder Punta alta.pdf"),                                   "label": "Poder AR Punta Alta"},
     "Acta_Poder":                                           {"path": _f("Acta_Poder.docx"),                                        "label": "Acta Poder"},
     "(Beneficios)_NUEVO_CONVENIO_DE_HONORARIOS_Numerado":  {"path": _f("(Beneficios)_NUEVO_CONVENIO_DE_HONORARIOS_Numerado.docx"), "label": "(Beneficios) NUEVO CONVENIO DE HONORARIOS Numerado"},
     "(Juicios)_NUEVO_CONVENIO_DE_HONORARIOS_Numerado":     {"path": _f("(Juicios)_NUEVO_CONVENIO_DE_HONORARIOS_Numerado.docx"),    "label": "(Juicios) NUEVO CONVENIO DE HONORARIOS Numerado"},
