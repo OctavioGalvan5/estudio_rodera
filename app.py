@@ -747,6 +747,7 @@ def mails_planilla_progreso(token):
 # INICIO
 # ---------------------------------------------------------------------------
 
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True, port=5001)
