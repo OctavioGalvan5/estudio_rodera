@@ -37,24 +37,6 @@ def init_db():
                 fullname TEXT DEFAULT ''
             )
         """))
-        new_columns = [
-            ("poder_ar_la_plata",                  _bool),
-            ("poder_ar_punta_alta",                _bool),
-            ("formularios_jubilacion_nueva",        _bool),
-            ("formularios_jubilacion_pc_nueva",     _bool),
-            ("formularios_jubilacion_moratoria_nueva", _bool),
-            ("formularios_pension_nueva",           _bool),
-            ("ps_5_8_obra_social",                 _bool),
-            ("ps_6_304_carta_poder",               _bool),
-        ]
-        for col, col_type in new_columns:
-            try:
-                if _use_postgres:
-                    conn.execute(text(f"ALTER TABLE data_clientes ADD COLUMN IF NOT EXISTS {col} {col_type}"))
-                else:
-                    conn.execute(text(f"ALTER TABLE data_clientes ADD COLUMN {col} {col_type}"))
-            except Exception:
-                pass
 
         conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS data_clientes (
@@ -146,3 +128,23 @@ def init_db():
                 ps_6_304_carta_poder {_bool}
             )
         """))
+
+    new_columns = [
+        ("poder_ar_la_plata",                     _bool),
+        ("poder_ar_punta_alta",                   _bool),
+        ("formularios_jubilacion_nueva",           _bool),
+        ("formularios_jubilacion_pc_nueva",        _bool),
+        ("formularios_jubilacion_moratoria_nueva", _bool),
+        ("formularios_pension_nueva",              _bool),
+        ("ps_5_8_obra_social",                    _bool),
+        ("ps_6_304_carta_poder",                  _bool),
+    ]
+    for col, col_type in new_columns:
+        try:
+            with engine.begin() as conn:
+                if _use_postgres:
+                    conn.execute(text(f"ALTER TABLE data_clientes ADD COLUMN IF NOT EXISTS {col} {col_type}"))
+                else:
+                    conn.execute(text(f"ALTER TABLE data_clientes ADD COLUMN {col} {col_type}"))
+        except Exception:
+            pass
