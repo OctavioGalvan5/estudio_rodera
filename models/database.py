@@ -44,6 +44,7 @@ def init_db():
             ("formularios_jubilacion_pc_nueva",     _bool),
             ("formularios_jubilacion_moratoria_nueva", _bool),
             ("formularios_pension_nueva",           _bool),
+            ("ps_5_8_obra_social",                 _bool),
         ]
         for col, col_type in new_columns:
             try:
@@ -139,6 +140,7 @@ def init_db():
                 formularios_jubilacion_nueva {_bool},
                 formularios_jubilacion_pc_nueva {_bool},
                 formularios_jubilacion_moratoria_nueva {_bool},
-                formularios_pension_nueva {_bool}
+                formularios_pension_nueva {_bool},
+                ps_5_8_obra_social {_bool}
             )
         """))

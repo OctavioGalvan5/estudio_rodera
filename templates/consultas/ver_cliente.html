@@ -138,6 +138,7 @@
                     <label class="checkbox-item {% if data_cliente.telegrama_revocando_poder %}checked{% endif %}"><input type="checkbox" name="Telegrama_revocando_poder" id="Telegrama_revocando_poder" {% if data_cliente.telegrama_revocando_poder %}checked{% endif %}>Telegrama Revocando Poder</label>
                     <label class="checkbox-item {% if data_cliente.poder_ar_la_plata %}checked{% endif %}"><input type="checkbox" name="poder_AR_La_plata" id="poder_AR_La_plata" {% if data_cliente.poder_ar_la_plata %}checked{% endif %}>Poder AR La Plata</label>
                     <label class="checkbox-item {% if data_cliente.poder_ar_punta_alta %}checked{% endif %}"><input type="checkbox" name="poder_AR_punta_alta" id="poder_AR_punta_alta" {% if data_cliente.poder_ar_punta_alta %}checked{% endif %}>Poder AR Punta Alta</label>
+                    <label class="checkbox-item {% if data_cliente.ps_5_8_obra_social %}checked{% endif %}"><input type="checkbox" name="PS_5.8_Obra_Social" id="PS_5.8_Obra_Social" {% if data_cliente.ps_5_8_obra_social %}checked{% endif %}>PS 5.8 Obra Social</label>
                 </div>
 
                 <div class="section-label">Formularios PS</div>
@@ -224,10 +225,10 @@
         'formularios_UCAP': ['Formulario_Carta_Poder_(CSS)', 'F_3283_Autorización_ARCA', '2.91_Guarda_Documental', 'PS_1.75_Carta_Poder_Cap_III_27.705', 'PS_6.305_Carta_Poder', 'DDJJ_de_salud_resol_300', 'PS_6.2_Certific_de_Servicios'],
         'formularios_Reajuste_de_Haberes': ['Formulario_Carta_Poder_(CSS)', 'F_3283_Autorización_ARCA', '2.91_Guarda_Documental', 'PS_6.2_Certific_de_Servicios', 'PS_6.4_Carta_Poder', 'PS_5.11_Aceptacion_de_la_Obra_Social', 'PS_5.7_Derivacion_aportes_Obra_Social', 'Telegrama_revocando_poder'],
         'formularios_asignacion_fliar_hijo_discapacitado': ['Formulario_Carta_Poder_(CSS)', 'PS_6.4_Carta_Poder'],
-        'formularios_Jubilacion_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', '2.91_Guarda_Documental'],
-        'formularios_Jubilacion_PC_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', 'Anexo_II_DEC_894_01', '2.91_Guarda_Documental'],
-        'formularios_Jubilacion_Moratoria_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', '2.91_Guarda_Documental', 'PS_6.305_Carta_Poder', 'PS_6.278_Dto_de_cuotas_jubilación'],
-        'formularios_Pension_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', '2.91_Guarda_Documental'],
+        'formularios_Jubilacion_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', 'PS_5.8_Obra_Social', '2.91_Guarda_Documental'],
+        'formularios_Jubilacion_PC_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', 'PS_5.8_Obra_Social', 'Anexo_II_DEC_894_01', '2.91_Guarda_Documental'],
+        'formularios_Jubilacion_Moratoria_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', 'PS_5.8_Obra_Social', '2.91_Guarda_Documental', 'PS_6.305_Carta_Poder', 'PS_6.278_Dto_de_cuotas_jubilación'],
+        'formularios_Pension_nueva': ['6.18_Solicitud_Prestaciones_Previsionales', 'poder_AR_La_plata', 'poder_AR_punta_alta', 'PS_6.4_Carta_Poder', 'PS_6.284_DDJJ_Fzas_Armadas', 'PS_5.8_Obra_Social', '2.91_Guarda_Documental'],
     };
 
     Object.entries(SYNC).forEach(([triggerId, deps]) => {
